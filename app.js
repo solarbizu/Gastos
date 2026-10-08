@@ -8,7 +8,7 @@
  */
 'use strict';
 (() => {
-  const VERSION = '1.3.0';
+  const VERSION = '1.4.0';
   const API = 'https://api.github.com';
   const $ = (id) => document.getElementById(id);
   const nf0 = new Intl.NumberFormat('es-AR', { maximumFractionDigits: 0 });
@@ -368,7 +368,7 @@
       detalle: tipo === 'pago' ? descripcion
         : [categoria && descripcion ? categoria : '', medio && tipo === 'gasto' ? medio.nombre : '',
           rutasFotos.length ? 'con ticket' : ''].filter(Boolean).join(', '),
-      enviado: false,
+      enviado: false, conTicket: rutasFotos.length > 0,
     });
     historial = historial.slice(0, 12);
     guardado.escribir('historial', historial);
@@ -514,6 +514,39 @@
   }
 
   // ------------------------------------------------------------ lo que se ve
+  const idEnLibro = (id) => 'a' + String(id).toLowerCase().replace(/[^0-9a-f]/g, '').slice(0, 11);
+
+  // La lista de "lo último que cargaste" nace de lo tipeado acá, pero el libro manda: si después
+  // se corrigió (otro medio de pago, otra categoría) o se borró un gasto, la lista lo refleja.
+  function sincronizarHistorial() {
+    if (!estado || !Array.isArray(estado.de_la_app)) return;
+    const enLibro = new Map(estado.de_la_app.map((m) => [m.id, m]));
+    const corte = (Date.parse(estado.generado || '') || 0) - 10 * 60 * 1000;   // margen: lo recién enviado puede no haber entrado todavía
+    const desde = estado.de_la_app_desde ? Date.parse(estado.de_la_app_desde) : 0;
+    let cambio = false;
+    historial = historial.filter((h) => {
+      if (!h.enviado) return true;
+      const m = enLibro.get(idEnLibro(h.id));
+      if (!m) {
+        const creado = Date.parse(h.creado);
+        const borrado = creado < corte && creado >= desde;       // tuvo tiempo de entrar y no está: se borró
+        cambio = cambio || borrado;
+        return !borrado;
+      }
+      const esPago = m.es_pago_tarjeta;
+      const nuevo = {
+        tipo: esPago ? 'pago' : m.tipo, monto: m.monto, moneda: m.moneda, fecha: m.fecha, cuotas: m.cuotas,
+        texto: esPago ? `Pago ${m.medio}` : (m.descripcion || m.categoria),
+        detalle: esPago ? m.descripcion
+          : [m.descripcion ? m.categoria : '', m.tipo === 'gasto' ? m.medio : '',
+            m.ticket === 'ok' ? 'ticket leído' : (m.ticket === 'revisar' ? 'ticket a revisar' : (h.conTicket ? 'con ticket' : ''))].filter(Boolean).join(', '),
+      };
+      Object.keys(nuevo).forEach((k) => { if (h[k] !== nuevo[k]) { h[k] = nuevo[k]; cambio = true; } });
+      return true;
+    });
+    if (cambio) { guardado.escribir('historial', historial); pintarRecientes(); }
+  }
+
   function pintarRecientes() {
     const lista = $('lista-recientes');
     lista.textContent = '';
@@ -578,8 +611,7 @@
     }
     // Una carga "espera entrar" si es posterior al último tablero y todavía no figura en él.
     const corte = Date.parse(estado.generado || '') || 0;
-    const procesados = new Set((estado.ultimos || []).map((u) => u.id));
-    const idEnLibro = (id) => 'a' + String(id).toLowerCase().replace(/[^0-9a-f]/g, '').slice(0, 11);
+    const procesados = new Set((estado.ultimos || []).concat(estado.de_la_app || []).map((u) => u.id));
     const sinProcesar = historial.filter((h) => Date.parse(h.creado) > corte && !procesados.has(idEnLibro(h.id))).length;
     if (sinProcesar) {
       frases.push(sinProcesar === 1 ? 'Hay 1 carga tuya esperando entrar.' : `Hay ${sinProcesar} cargas tuyas esperando entrar.`);
@@ -648,6 +680,7 @@
       if (texto) {
         estado = JSON.parse(texto);
         guardado.escribir('estado', estado);
+        sincronizarHistorial();
         pintarTira();
       }
     } catch { /* se reintenta la próxima vez */ }
