@@ -1,0 +1,7 @@
+Tipografías incluidas en esta carpeta, ambas bajo la SIL Open Font License 1.1
+(https://openfontlicense.org):
+
+- Instrument Sans — Copyright 2022 The Instrument Sans Project Authors
+  (https://github.com/Instrument/instrument-sans)
+- Azeret Mono — Copyright 2021 The Azeret Project Authors
+  (https://github.com/displaay/azeret)

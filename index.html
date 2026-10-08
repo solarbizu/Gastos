@@ -1,0 +1,160 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src https://api.github.com; img-src 'self' data:; font-src 'self'; manifest-src 'self'; worker-src 'self'; frame-src 'self'; base-uri 'none'; form-action 'none'">
+<meta name="robots" content="noindex, nofollow">
+<meta name="referrer" content="no-referrer">
+<meta name="theme-color" content="#eef1ef" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0f131b" media="(prefers-color-scheme: dark)">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Gastos">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png" type="image/png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="stylesheet" href="app.css">
+<title>Gastos</title>
+</head>
+<body>
+
+<header class="tira" id="tira" hidden>
+  <button type="button" class="tira-boton" id="tira-boton" aria-label="Abrir el tablero">
+    <span class="tira-linea"><span id="tira-mes"></span><span id="tira-monto"></span></span>
+    <span class="tira-medidor" id="tira-medidor" hidden><span id="tira-barra"></span></span>
+    <span class="tira-pie" id="tira-pie"></span>
+  </button>
+</header>
+
+<main>
+  <!-- Cargar -->
+  <section id="vista-cargar" class="vista" hidden>
+    <form id="form" class="ticket" novalidate autocomplete="off">
+      <div class="segmento" role="radiogroup" aria-label="Qué vas a cargar">
+        <label><input type="radio" name="tipo" value="gasto" checked><span>Gasto</span></label>
+        <label><input type="radio" name="tipo" value="ingreso"><span>Ingreso</span></label>
+        <label><input type="radio" name="tipo" value="ahorro"><span>Ahorro</span></label>
+      </div>
+
+      <div class="monto">
+        <button type="button" id="moneda" class="moneda" aria-label="Cambiar moneda. Ahora: pesos">$</button>
+        <input id="monto" class="monto-input" type="text" inputmode="decimal" placeholder="0"
+               aria-label="Monto" enterkeyhint="done" maxlength="16">
+      </div>
+      <p class="error" id="error-monto" hidden></p>
+
+      <fieldset id="grupo-categoria">
+        <legend>Categoría</legend>
+        <div class="chips" id="chips-categoria"></div>
+      </fieldset>
+
+      <fieldset id="grupo-meta" hidden>
+        <legend>Para qué meta</legend>
+        <div class="chips" id="chips-meta"></div>
+      </fieldset>
+
+      <fieldset id="grupo-medio">
+        <legend>Pagado con</legend>
+        <div class="chips" id="chips-medio"></div>
+        <p class="error" id="error-medio" hidden></p>
+      </fieldset>
+
+      <fieldset id="grupo-cuotas" hidden>
+        <legend>Cuotas</legend>
+        <div class="chips" id="chips-cuotas"></div>
+        <p class="ayuda" id="ayuda-cuotas" hidden></p>
+      </fieldset>
+
+      <fieldset>
+        <legend>Cuándo</legend>
+        <div class="chips" id="chips-fecha">
+          <label class="chip"><input type="radio" name="cuando" value="hoy" checked><span>Hoy</span></label>
+          <label class="chip"><input type="radio" name="cuando" value="ayer"><span>Ayer</span></label>
+          <label class="chip"><input type="radio" name="cuando" value="otra"><span>Otro día</span></label>
+          <input type="date" id="fecha" aria-label="Fecha" hidden>
+        </div>
+      </fieldset>
+
+      <label class="campo">
+        <span>Dónde o en qué <span class="opcional">(opcional)</span></span>
+        <input id="descripcion" type="text" maxlength="120" enterkeyhint="done" placeholder="Coto, almuerzo, nafta…">
+      </label>
+
+      <div class="barra-guardar"><button type="submit" class="principal" id="guardar">Guardar gasto</button></div>
+    </form>
+
+    <section class="recientes" id="recientes" hidden>
+      <h2>Lo último que cargaste acá</h2>
+      <ul id="lista-recientes"></ul>
+    </section>
+  </section>
+
+  <!-- Tablero -->
+  <section id="vista-tablero" class="vista vista-tablero" hidden>
+    <div class="tablero-barra">
+      <span id="tablero-estado"></span>
+      <button type="button" class="secundario" id="tablero-actualizar">Actualizar</button>
+    </div>
+    <iframe id="marco" title="Tablero de finanzas" sandbox></iframe>
+    <div class="vacio" id="tablero-vacio" hidden>
+      <h2>Todavía no hay tablero</h2>
+      <p>Se genera solo, un minuto después de la primera carga. Cargá un gasto y volvé.</p>
+    </div>
+  </section>
+
+  <!-- Ajustes -->
+  <section id="vista-ajustes" class="vista" hidden>
+    <div class="panel" id="bienvenida" hidden>
+      <h1>Conectá la app con tus datos</h1>
+      <p>La app guarda cada carga en tu repositorio privado de GitHub. Necesita dos datos, una sola vez. Quedan guardados solo en este teléfono.</p>
+    </div>
+
+    <form id="form-ajustes" class="panel" novalidate autocomplete="off">
+      <label class="campo">
+        <span>Repositorio</span>
+        <input id="repo" type="text" inputmode="url" autocapitalize="none" autocorrect="off" spellcheck="false"
+               placeholder="tu-usuario/finanzas">
+        <small>El repositorio privado, escrito como usuario/nombre.</small>
+      </label>
+      <label class="campo">
+        <span>Llave de acceso</span>
+        <input id="token" type="password" autocapitalize="none" autocorrect="off" spellcheck="false"
+               placeholder="github_pat_…">
+        <small>Un token de GitHub con permiso de lectura y escritura de contenido solo sobre ese repositorio. La guía explica cómo crearlo.</small>
+      </label>
+      <p class="error" id="error-ajustes" hidden></p>
+      <button type="submit" class="principal conectar" id="conectar">Conectar</button>
+    </form>
+
+    <div class="panel" id="conectado" hidden>
+      <h2>Conectada</h2>
+      <p id="conectado-detalle"></p>
+      <div class="acciones">
+        <button type="button" class="secundario" id="sincronizar">Actualizar categorías y medios de pago</button>
+        <button type="button" class="secundario" id="reintentar" hidden>Enviar lo que está en cola</button>
+        <button type="button" class="peligro" id="desconectar">Desconectar este teléfono</button>
+      </div>
+    </div>
+    <p class="version" id="version"></p>
+  </section>
+</main>
+
+<nav class="pestanas" id="pestanas" aria-label="Secciones" hidden>
+  <button type="button" data-vista="cargar" aria-current="page">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg><span>Cargar</span>
+  </button>
+  <button type="button" data-vista="tablero">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 20V10M12 20V4M19 20v-7"/></svg><span>Tablero</span>
+    <span class="punto-aviso" id="punto-aviso" hidden></span>
+  </button>
+  <button type="button" data-vista="ajustes">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h10M18 7h2M4 17h2M10 17h10"/><circle cx="16" cy="7" r="2"/><circle cx="8" cy="17" r="2"/></svg><span>Ajustes</span>
+  </button>
+</nav>
+
+<div class="aviso" id="aviso" role="status" aria-live="polite"></div>
+<script src="app.js" defer></script>
+</body>
+</html>
