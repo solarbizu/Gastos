@@ -83,6 +83,14 @@ legend,.campo>span{padding:0;font-size:.86rem;color:var(--tinta2);margin-bottom:
 .campo input:focus-visible,#fecha:focus-visible,.chip-numero:focus-visible{outline:2px solid var(--sello);outline-offset:1px;border-color:transparent}
 .campo small{display:block;margin-top:6px;color:var(--tinta2);font-size:.84rem;line-height:1.35}
 .ayuda{font-size:.84rem;color:var(--tinta2);margin:8px 0 0}
+.oculto{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}
+.ticket-fotos{display:flex;flex-wrap:wrap;gap:10px}
+.ticket-fotos:not(:empty){margin-bottom:10px}
+.ticket-foto{position:relative;width:64px;height:84px;border-radius:8px;overflow:hidden;box-shadow:inset 0 0 0 1.5px var(--linea)}
+.ticket-foto img{width:100%;height:100%;object-fit:cover;display:block}
+.ticket-foto button{position:absolute;top:2px;right:2px;width:24px;height:24px;border:0;border-radius:50%;background:rgba(0,0,0,.62);color:#fff;
+  font:600 15px/1 inherit;cursor:pointer;display:grid;place-items:center;padding:0}
+#ticket-boton{cursor:pointer}
 .error{color:var(--critico);font-size:.88rem;margin:8px 0 0;font-weight:550}
 
 /* El botón de guardar queda siempre a mano, pegado arriba de las pestañas */

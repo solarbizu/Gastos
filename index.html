@@ -83,6 +83,15 @@
         <input id="descripcion" type="text" maxlength="120" enterkeyhint="done" placeholder="Coto, almuerzo, nafta…">
       </label>
 
+      <fieldset id="grupo-ticket">
+        <legend>Ticket <span class="opcional">(opcional)</span></legend>
+        <div class="ticket-fotos" id="ticket-fotos"></div>
+        <label class="chip-boton" id="ticket-boton" for="ticket-archivo">Agregar foto del ticket</label>
+        <input type="file" id="ticket-archivo" class="oculto" accept="image/*" multiple>
+        <p class="ayuda" id="ayuda-ticket">Para ver la compra por rubro. Si el ticket es largo, sacale varias fotos por partes. Se leen los domingos a la noche.</p>
+        <p class="error" id="error-ticket" hidden></p>
+      </fieldset>
+
       <div class="barra-guardar"><button type="submit" class="principal" id="guardar">Guardar gasto</button></div>
     </form>
 

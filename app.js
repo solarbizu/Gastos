@@ -8,7 +8,7 @@
  */
 'use strict';
 (() => {
-  const VERSION = '1.2.0';
+  const VERSION = '1.3.0';
   const API = 'https://api.github.com';
   const $ = (id) => document.getElementById(id);
   const nf0 = new Intl.NumberFormat('es-AR', { maximumFractionDigits: 0 });
@@ -23,7 +23,10 @@
       } catch { return defecto; }
     },
     escribir(clave, valor) {
-      try { localStorage.setItem('fin.' + clave, JSON.stringify(valor)); } catch { /* sin espacio o modo privado */ }
+      try { localStorage.setItem('fin.' + clave, JSON.stringify(valor)); return true; } catch { return false; /* sin espacio o modo privado */ }
+    },
+    borrar(clave) {
+      try { localStorage.removeItem('fin.' + clave); } catch { /* nada */ }
     },
     borrarTodo() {
       try {
@@ -38,6 +41,9 @@
   let cola = guardado.leer('cola', []);            // cargas todavía no enviadas
   let historial = guardado.leer('historial', []);  // últimas cargas hechas acá
   let enviando = false;
+  const MAX_FOTOS = 4;
+  let fotos = [];                 // fotos del ticket del gasto que se está cargando (JPEG en base64)
+  const fotosMem = new Map();     // fotos en cola, por ruta: respaldo en memoria si el teléfono no tiene lugar para guardarlas
 
   // ------------------------------------------------------------------ GitHub
   class ErrorApi extends Error {
@@ -276,6 +282,7 @@
     $('leyenda-medio').textContent = tipo === 'pago' ? 'Qué tarjeta pagaste' : 'Pagado con';
     const conCuotas = tipo === 'gasto' && medio && medio.tipo === 'credito';
     $('grupo-cuotas').hidden = !conCuotas;
+    $('grupo-ticket').hidden = tipo !== 'gasto';
     $('guardar').textContent = tipo === 'pago' ? 'Guardar pago de tarjeta' : `Guardar ${tipo}`;
     $('descripcion').placeholder = { gasto: 'Coto, almuerzo, nafta…', ingreso: 'Sueldo, venta, reintegro…', ahorro: 'Aporte del mes…', pago: 'Resumen de septiembre…' }[tipo];
     pintarAyudaCuotas();
@@ -335,8 +342,22 @@
     if (tipo === 'gasto' || tipo === 'pago') dato.medio = medio.id;
     if (tipo === 'ahorro' && valor('meta')) dato.meta = valor('meta');
 
+    // Las fotos del ticket viajan aparte, con el mismo identificador que va a tener el gasto en el libro.
+    const idLibro = 'a' + dato.id.replace(/-/g, '').toLowerCase().slice(0, 11);
+    const rutasFotos = [];
+    let fotosSinGuardar = 0;
+    if (tipo === 'gasto') {
+      fotos.forEach((b64, i) => {
+        const ruta = `tickets/pendientes/${idLibro}${i ? '-' + (i + 1) : ''}.jpg`;
+        rutasFotos.push(ruta);
+        fotosMem.set(ruta, b64);
+        if (!guardado.escribir('foto.' + ruta, b64)) fotosSinGuardar += 1;
+      });
+      if (rutasFotos.length) dato.ticket = rutasFotos.length;
+    }
+
     const sello = ahora.toISOString().replace(/[-:]/g, '').replace(/\.\d+/, '');
-    const item = { archivo: `${sello}-${dato.id.replace(/-/g, '').slice(0, 8)}.json`, dato };
+    const item = { archivo: `${sello}-${dato.id.replace(/-/g, '').slice(0, 8)}.json`, dato, fotos: rutasFotos };
     cola.push(item);
     guardado.escribir('cola', cola);
 
@@ -345,7 +366,8 @@
       id: dato.id, creado: dato.creado, fecha, tipo, monto, moneda, cuotas,
       texto: tipo === 'pago' ? `Pago ${medio.nombre}` : descripcion || categoria || { gasto: 'Gasto', ingreso: 'Ingreso', ahorro: 'Ahorro' }[tipo],
       detalle: tipo === 'pago' ? descripcion
-        : [categoria && descripcion ? categoria : '', medio && tipo === 'gasto' ? medio.nombre : ''].filter(Boolean).join(', '),
+        : [categoria && descripcion ? categoria : '', medio && tipo === 'gasto' ? medio.nombre : '',
+          rutasFotos.length ? 'con ticket' : ''].filter(Boolean).join(', '),
       enviado: false,
     });
     historial = historial.slice(0, 12);
@@ -359,6 +381,8 @@
     form.querySelector('input[name="cuando"][value="hoy"]').checked = true;   // la fecha vuelve a hoy: evita cargar con un día viejo sin querer
     $('fecha').hidden = true;
     cuotasLibres = false;
+    fotos = [];
+    pintarFotos();
     if (tipo === 'pago') form.querySelectorAll('input[name="medio"]').forEach((i) => { i.checked = false; });
     pintarCuotas();
     acomodarFormulario();
@@ -371,12 +395,76 @@
     const resultado = await vaciarCola();
     $('guardar').disabled = false;
     if (resultado.ok) {
-      avisar(`Guardado: ${plata(monto, moneda)}`);
+      avisar(`Guardado: ${plata(monto, moneda)}` + (rutasFotos.length ? ', con ticket' : ''));
       setTimeout(refrescarEstado, 75000);   // la automatización tarda cerca de un minuto
     } else if (resultado.error instanceof ErrorApi) {
       avisar(`Quedó en este teléfono sin enviar. ${explicar(resultado.error)}`, true, 7000);
+    } else if (fotosSinGuardar) {
+      avisar('Sin conexión. El gasto quedó en cola, pero no hay lugar para guardar la foto: no cierres la app hasta que vuelva la señal.', true, 9000);
     } else {
       avisar('Sin conexión. Quedó en cola y se envía sola cuando vuelva la señal.', false, 5000);
+    }
+  }
+
+  // ----------------------------------------------------------------- tickets
+  function leerComoDataUrl(archivo) {
+    return new Promise((ok, mal) => {
+      const lector = new FileReader();
+      lector.onload = () => ok(lector.result);
+      lector.onerror = () => mal(lector.error);
+      lector.readAsDataURL(archivo);
+    });
+  }
+
+  // La foto se achica en el teléfono antes de subir: alcanza para leer el ticket y pesa diez veces menos.
+  async function achicar(archivo) {
+    const url = await leerComoDataUrl(archivo);
+    const img = new Image();
+    await new Promise((ok, mal) => { img.onload = ok; img.onerror = () => mal(new Error('imagen')); img.src = url; });
+    const escala = Math.min(1, 1800 / Math.max(img.naturalWidth, img.naturalHeight));
+    const lienzo = document.createElement('canvas');
+    lienzo.width = Math.max(1, Math.round(img.naturalWidth * escala));
+    lienzo.height = Math.max(1, Math.round(img.naturalHeight * escala));
+    const ctx = lienzo.getContext('2d');
+    ctx.fillStyle = '#fff';
+    ctx.fillRect(0, 0, lienzo.width, lienzo.height);
+    ctx.drawImage(img, 0, 0, lienzo.width, lienzo.height);
+    return lienzo.toDataURL('image/jpeg', 0.62).split(',')[1];
+  }
+
+  function pintarFotos() {
+    const caja = $('ticket-fotos');
+    caja.textContent = '';
+    fotos.forEach((b64, i) => {
+      const marco = document.createElement('div');
+      marco.className = 'ticket-foto';
+      const img = document.createElement('img');
+      img.alt = `Foto ${i + 1} del ticket`;
+      img.src = 'data:image/jpeg;base64,' + b64;
+      const quitar = document.createElement('button');
+      quitar.type = 'button';
+      quitar.textContent = '×';
+      quitar.setAttribute('aria-label', `Quitar la foto ${i + 1}`);
+      quitar.addEventListener('click', () => { fotos.splice(i, 1); pintarFotos(); });
+      marco.append(img, quitar);
+      caja.append(marco);
+    });
+    $('ticket-boton').hidden = fotos.length >= MAX_FOTOS;
+    $('ticket-boton').textContent = fotos.length ? 'Agregar otra foto' : 'Agregar foto del ticket';
+  }
+
+  async function alElegirFotos(evento) {
+    mostrarError('error-ticket', '');
+    const elegidas = Array.from(evento.target.files || []);
+    evento.target.value = '';                     // así se puede volver a elegir la misma foto
+    for (const archivo of elegidas) {
+      if (fotos.length >= MAX_FOTOS) { mostrarError('error-ticket', `Hasta ${MAX_FOTOS} fotos por ticket.`); break; }
+      try {
+        fotos.push(await achicar(archivo));
+      } catch {
+        mostrarError('error-ticket', 'No pude abrir esa foto. Probá sacarla de nuevo.');
+      }
+      pintarFotos();
     }
   }
 
@@ -388,6 +476,18 @@
     try {
       while (cola.length) {
         const item = cola[0];
+        // Primero las fotos del ticket: así el gasto nunca llega al libro apuntando a una foto que no subió.
+        for (const ruta of item.fotos || []) {
+          const b64 = fotosMem.get(ruta) || guardado.leer('foto.' + ruta, null);
+          if (!b64) continue;                      // se perdió (teléfono sin lugar): el gasto se envía igual
+          const rf = await gh('contents/' + ruta, {
+            method: 'PUT', espera: 60000,
+            body: { message: `App: ticket del ${item.dato.fecha}`, content: b64 },
+          });
+          if (!(rf.status === 201 || rf.status === 200 || rf.status === 422)) throw new ErrorApi(rf.status);
+          fotosMem.delete(ruta);
+          guardado.borrar('foto.' + ruta);
+        }
         const r = await gh('contents/inbox/' + item.archivo, {
           method: 'PUT',
           body: {
@@ -665,6 +765,7 @@
     if (!window.confirm(aviso)) return;
     guardado.borrarTodo();
     cfg = null; catalogo = null; estado = null; cola = []; historial = [];
+    fotos = []; fotosMem.clear(); pintarFotos();
     $('marco').removeAttribute('srcdoc');
     pintarAjustes();
     pintarRecientes();
@@ -715,6 +816,7 @@
     $('moneda').setAttribute('aria-label', `Cambiar moneda. Ahora: ${moneda === 'ARS' ? 'pesos' : 'dólares'}`);
     pintarAyudaCuotas();
   });
+  $('ticket-archivo').addEventListener('change', alElegirFotos);
   $('form-ajustes').addEventListener('submit', alConectar);
   $('desconectar').addEventListener('click', desconectar);
   $('sincronizar').addEventListener('click', () => refrescarCatalogo(true));
