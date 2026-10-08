@@ -97,7 +97,9 @@
       <span id="tablero-estado"></span>
       <button type="button" class="secundario" id="tablero-actualizar">Actualizar</button>
     </div>
-    <iframe id="marco" title="Tablero de finanzas" sandbox></iframe>
+    <!-- allow-same-origin sin allow-scripts: el tablero no puede ejecutar nada, pero la app
+         puede medirlo para mostrarlo entero en lugar de recortado en un recuadro. -->
+    <iframe id="marco" title="Tablero de finanzas" sandbox="allow-same-origin"></iframe>
     <div class="vacio" id="tablero-vacio" hidden>
       <h2>Todavía no hay tablero</h2>
       <p>Se genera solo, un minuto después de la primera carga. Cargá un gasto y volvé.</p>

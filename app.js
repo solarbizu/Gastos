@@ -8,7 +8,7 @@
  */
 'use strict';
 (() => {
-  const VERSION = '1.0.0';
+  const VERSION = '1.1.0';
   const API = 'https://api.github.com';
   const $ = (id) => document.getElementById(id);
   const nf0 = new Intl.NumberFormat('es-AR', { maximumFractionDigits: 0 });
@@ -556,6 +556,29 @@
     }
   }
 
+  // El tablero se muestra entero, del alto de su contenido, y la página se desplaza como cualquier
+  // otra. Un recuadro con desplazamiento propio en el teléfono parece que termina donde corta.
+  let observadorMarco = null;
+  function ajustarMarco() {
+    const marco = $('marco');
+    const doc = marco.contentDocument;
+    if (!doc || !doc.body || marco.hidden) return;
+    const alto = Math.ceil(doc.documentElement.getBoundingClientRect().height);
+    if (alto > 0) marco.style.height = `${alto}px`;
+  }
+  function vigilarMarco() {
+    const doc = $('marco').contentDocument;
+    if (!doc || !doc.body) return;
+    if (observadorMarco) observadorMarco.disconnect();
+    if ('ResizeObserver' in window) {
+      observadorMarco = new ResizeObserver(ajustarMarco);
+      observadorMarco.observe(doc.documentElement);
+      observadorMarco.observe(doc.body);
+    }
+    doc.addEventListener('toggle', ajustarMarco, true);   // los "Ver tabla" cambian el alto
+    ajustarMarco();
+  }
+
   async function abrirTablero(forzar = false) {
     const marco = $('marco');
     const enCache = guardado.leer('tablero', null);
@@ -568,6 +591,7 @@
     $('tablero-estado').textContent = rotulo();
     $('tablero-vacio').hidden = Boolean(enCache);
     marco.hidden = !enCache;
+    ajustarMarco();
     if (!navigator.onLine) {
       if (forzar) avisar('Sin conexión: te muestro el último tablero guardado.');
       return;
@@ -687,6 +711,8 @@
     avisar(r.ok ? 'Enviado todo lo que estaba en cola.' : explicar(r.error), !r.ok, 5000);
   });
   $('tablero-actualizar').addEventListener('click', () => abrirTablero(true));
+  $('marco').addEventListener('load', vigilarMarco);
+  window.addEventListener('resize', ajustarMarco);
   $('tira-boton').addEventListener('click', () => irA('tablero'));
   document.querySelectorAll('#pestanas button').forEach((b) => b.addEventListener('click', () => irA(b.dataset.vista)));
   window.addEventListener('online', () => { vaciarCola(); refrescarEstado(); });

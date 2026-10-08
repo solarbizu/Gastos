@@ -109,7 +109,7 @@ legend,.campo>span{padding:0;font-size:.86rem;color:var(--tinta2);margin-bottom:
 
 /* Tablero */
 .tablero-barra{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:4px 0 10px;font-size:.84rem;color:var(--tinta2)}
-#marco{flex:1;width:calc(100% + 32px);margin:0 -16px;border:0;min-height:68dvh;background:var(--papel)}
+#marco{flex:none;display:block;width:calc(100% + 32px);margin:0 -16px;border:0;height:68dvh;background:var(--papel)}
 .vacio{padding:40px 4px;color:var(--tinta2)}
 .vacio h2{color:var(--tinta);font-size:1.15rem}
 
