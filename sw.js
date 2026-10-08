@@ -1,6 +1,6 @@
 /* Guarda la app en el teléfono para que abra al instante y funcione sin señal.
  * Nunca guarda nada de GitHub: los datos van siempre directo a la red. */
-const CACHE = 'gastos-v2';
+const CACHE = 'gastos-v3';
 const ARCHIVOS = ['./', 'index.html', 'app.css', 'app.js', 'manifest.webmanifest', 'icon-192.png',
   'fonts/instrument-sans.woff2', 'fonts/azeret-mono-500.woff2'];
 

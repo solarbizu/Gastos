@@ -52,9 +52,9 @@ fieldset{border:0;padding:0;margin:18px 0 0;min-width:0}
 legend,.campo>span{padding:0;font-size:.86rem;color:var(--tinta2);margin-bottom:8px;display:block}
 .opcional{opacity:.8}
 
-.segmento{display:grid;grid-template-columns:repeat(3,1fr);background:var(--chip);border-radius:10px;padding:3px}
+.segmento{display:grid;grid-template-columns:1fr 1fr 1fr 1.5fr;background:var(--chip);border-radius:10px;padding:3px}
 .segmento input{position:absolute;opacity:0;pointer-events:none}
-.segmento span{display:block;text-align:center;padding:9px 4px;border-radius:8px;font-weight:550;font-size:.95rem;cursor:pointer}
+.segmento span{display:block;text-align:center;padding:9px 2px;border-radius:8px;font-weight:550;font-size:.9rem;white-space:nowrap;cursor:pointer}
 .segmento input:checked+span{background:var(--ticket);box-shadow:0 1px 2px rgba(0,0,0,.14)}
 .segmento input:focus-visible+span{outline:2px solid var(--sello);outline-offset:1px}
 

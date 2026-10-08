@@ -8,7 +8,7 @@
  */
 'use strict';
 (() => {
-  const VERSION = '1.1.0';
+  const VERSION = '1.2.0';
   const API = 'https://api.github.com';
   const $ = (id) => document.getElementById(id);
   const nf0 = new Intl.NumberFormat('es-AR', { maximumFractionDigits: 0 });
@@ -192,11 +192,14 @@
 
   function pintarMedios() {
     const caja = $('chips-medio');
-    const elegido = valor('medio') || guardado.leer('ultimoMedio', '');
+    // Al pagar una tarjeta solo se ofrecen las tarjetas, y ninguna viene elegida: equivocarse de
+    // tarjeta acá deja un resumen como pagado y otro como impago.
+    const esPago = valor('tipo') === 'pago';
+    const elegido = esPago ? (medioElegido() || {}).id : (valor('medio') || guardado.leer('ultimoMedio', ''));
     caja.textContent = '';
     if (!catalogo) return;
     const frecuentes = (estado && estado.frecuentes && estado.frecuentes.medios) || [];
-    const lista = catalogo.medios.filter((m) => m.activo !== false);
+    const lista = catalogo.medios.filter((m) => m.activo !== false && (!esPago || m.tipo === 'credito'));
     lista.sort((a, b) => {
       const ia = frecuentes.indexOf(a.id), ib = frecuentes.indexOf(b.id);
       return (ia < 0 ? 999 : ia) - (ib < 0 ? 999 : ib);
@@ -267,13 +270,14 @@
   function acomodarFormulario() {
     const tipo = valor('tipo');
     const medio = medioElegido();
-    $('grupo-categoria').hidden = tipo === 'ahorro';
+    $('grupo-categoria').hidden = tipo === 'ahorro' || tipo === 'pago';
     $('grupo-meta').hidden = !(tipo === 'ahorro' && catalogo && (catalogo.metas || []).length);
-    $('grupo-medio').hidden = tipo !== 'gasto';
+    $('grupo-medio').hidden = tipo !== 'gasto' && tipo !== 'pago';
+    $('leyenda-medio').textContent = tipo === 'pago' ? 'Qué tarjeta pagaste' : 'Pagado con';
     const conCuotas = tipo === 'gasto' && medio && medio.tipo === 'credito';
     $('grupo-cuotas').hidden = !conCuotas;
-    $('guardar').textContent = `Guardar ${tipo}`;
-    $('descripcion').placeholder = { gasto: 'Coto, almuerzo, nafta…', ingreso: 'Sueldo, venta, reintegro…', ahorro: 'Aporte del mes…' }[tipo];
+    $('guardar').textContent = tipo === 'pago' ? 'Guardar pago de tarjeta' : `Guardar ${tipo}`;
+    $('descripcion').placeholder = { gasto: 'Coto, almuerzo, nafta…', ingreso: 'Sueldo, venta, reintegro…', ahorro: 'Aporte del mes…', pago: 'Resumen de septiembre…' }[tipo];
     pintarAyudaCuotas();
   }
 
@@ -314,6 +318,7 @@
     if (!monto) { mostrarError('error-monto', 'Escribí el monto.'); campoMonto.focus(); return; }
     const medio = medioElegido();
     if (tipo === 'gasto' && !medio) { mostrarError('error-medio', 'Elegí con qué lo pagaste.'); return; }
+    if (tipo === 'pago' && !(medio && medio.tipo === 'credito')) { mostrarError('error-medio', 'Elegí qué tarjeta pagaste.'); return; }
     const cuotas = cuotasElegidas();
     if (!cuotas) { mostrarError('error-medio', 'Las cuotas van de 1 a 60.'); return; }
     const fecha = fechaElegida();
@@ -321,11 +326,13 @@
     if (fecha > fechaLocal(new Date())) { mostrarError('error-monto', 'La fecha no puede ser futura.'); return; }
 
     const ahora = new Date();
-    const dato = { v: 1, id: nuevoId(), creado: isoLocal(ahora), fecha, tipo, monto, moneda, cuotas };
+    // El pago del resumen no es un gasto (las compras ya se contaron): viaja como transferencia.
+    const dato = { v: 1, id: nuevoId(), creado: isoLocal(ahora), fecha, tipo: tipo === 'pago' ? 'transferencia' : tipo, monto, moneda, cuotas };
     const descripcion = $('descripcion').value.trim().replace(/\s+/g, ' ');
     if (descripcion) dato.descripcion = descripcion;
-    if (tipo !== 'ahorro' && valor('categoria')) dato.categoria = valor('categoria');
-    if (tipo === 'gasto') dato.medio = medio.id;
+    if (tipo === 'pago') dato.categoria = 'pago_tarjeta';
+    else if (tipo !== 'ahorro' && valor('categoria')) dato.categoria = valor('categoria');
+    if (tipo === 'gasto' || tipo === 'pago') dato.medio = medio.id;
     if (tipo === 'ahorro' && valor('meta')) dato.meta = valor('meta');
 
     const sello = ahora.toISOString().replace(/[-:]/g, '').replace(/\.\d+/, '');
@@ -336,8 +343,9 @@
     const categoria = (catalogo.categorias.find((c) => c.id === dato.categoria) || {}).nombre;
     historial.unshift({
       id: dato.id, creado: dato.creado, fecha, tipo, monto, moneda, cuotas,
-      texto: descripcion || categoria || { gasto: 'Gasto', ingreso: 'Ingreso', ahorro: 'Ahorro' }[tipo],
-      detalle: [categoria && descripcion ? categoria : '', medio && tipo === 'gasto' ? medio.nombre : ''].filter(Boolean).join(', '),
+      texto: tipo === 'pago' ? `Pago ${medio.nombre}` : descripcion || categoria || { gasto: 'Gasto', ingreso: 'Ingreso', ahorro: 'Ahorro' }[tipo],
+      detalle: tipo === 'pago' ? descripcion
+        : [categoria && descripcion ? categoria : '', medio && tipo === 'gasto' ? medio.nombre : ''].filter(Boolean).join(', '),
       enviado: false,
     });
     historial = historial.slice(0, 12);
@@ -351,6 +359,7 @@
     form.querySelector('input[name="cuando"][value="hoy"]').checked = true;   // la fecha vuelve a hoy: evita cargar con un día viejo sin querer
     $('fecha').hidden = true;
     cuotasLibres = false;
+    if (tipo === 'pago') form.querySelectorAll('input[name="medio"]').forEach((i) => { i.checked = false; });
     pintarCuotas();
     acomodarFormulario();
     pintarRecientes();
@@ -416,7 +425,7 @@
       desc.textContent = h.texto;
       const monto = document.createElement('span');
       monto.className = 'rec-monto';
-      monto.textContent = (h.tipo === 'gasto' ? '' : '+ ') + plata(h.monto, h.moneda);
+      monto.textContent = (h.tipo === 'gasto' || h.tipo === 'pago' ? '' : '+ ') + plata(h.monto, h.moneda);
       const pie = document.createElement('span');
       pie.className = 'rec-pie' + (h.enviado ? '' : ' en-cola');
       const partes = [fechaCorta(h.fecha)];
@@ -665,7 +674,10 @@
   // ---------------------------------------------------------------- eventos
   form.addEventListener('submit', alGuardar);
   form.addEventListener('change', (e) => {
-    if (e.target.name === 'tipo') { pintarCategorias(); acomodarFormulario(); }
+    if (e.target.name === 'tipo') {
+      if (e.target.value === 'pago') form.querySelectorAll('input[name="medio"]').forEach((i) => { i.checked = false; });
+      pintarCategorias(); pintarMedios(); acomodarFormulario();
+    }
     if (e.target.name === 'medio') { mostrarError('error-medio', ''); acomodarFormulario(); }
     if (e.target.name === 'cuotas') pintarAyudaCuotas();
     if (e.target.name === 'cuando') {
