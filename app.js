@@ -8,7 +8,7 @@
  */
 'use strict';
 (() => {
-  const VERSION = '1.4.0';
+  const VERSION = '1.4.1';
   const API = 'https://api.github.com';
   const $ = (id) => document.getElementById(id);
   const nf0 = new Intl.NumberFormat('es-AR', { maximumFractionDigits: 0 });
@@ -880,7 +880,33 @@
   } else {
     irA('ajustes');
   }
+  // ----------------------------------------------------------------- versión nueva
+  // La app instalada en el teléfono puede quedar abierta días: sin esto seguiría mostrando la versión
+  // vieja. Cada vez que vuelve al frente pregunta si hay una nueva y, cuando la hay, se recarga sola
+  // (si hay un gasto a medio escribir, espera a que se guarde).
   if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) {
-    navigator.serviceWorker.register('sw.js').catch(() => { /* la app funciona igual sin él */ });
+    const yaControlada = Boolean(navigator.serviceWorker.controller);
+    let recargando = false;
+    let pendiente = false;
+    const escribiendo = () => Boolean($('monto').value || $('descripcion').value || fotos.length);
+    const aplicar = () => {
+      if (recargando || !pendiente) return;
+      if (escribiendo() && !$('vista-cargar').hidden) return;
+      recargando = true;
+      location.reload();
+    };
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      if (!yaControlada) return;            // primera instalación: no hay nada viejo que reemplazar
+      pendiente = true;
+      aplicar();
+    });
+    $('form').addEventListener('submit', () => setTimeout(aplicar, 4000));
+    navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' }).then((reg) => {
+      const buscar = () => { reg.update().catch(() => { /* sin señal: la próxima */ }); };
+      document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible') { buscar(); aplicar(); }
+      });
+      window.addEventListener('pageshow', buscar);
+    }).catch(() => { /* la app funciona igual sin él */ });
   }
 })();
