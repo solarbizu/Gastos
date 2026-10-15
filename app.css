@@ -153,3 +153,26 @@ legend,.campo>span{padding:0;font-size:.86rem;color:var(--tinta2);margin-bottom:
 @media (prefers-reduced-motion:reduce){.ticket.guardado{animation:none}.aviso{transition:none}}
 
 .conectar{margin-top:20px}
+
+/* Compu: el formulario a la izquierda y el tablero a la derecha, a la vista los dos.
+   En el celular no cambia nada. La pestaña Tablero sobra porque ya está al lado. */
+@media (min-width:1024px){
+  body{display:grid;grid-template-columns:420px minmax(0,1fr);grid-template-rows:auto auto 1fr;
+    grid-template-areas:"nav nav" "tira tab" "carga tab";column-gap:36px;align-items:start;
+    max-width:1440px;width:100%;margin:0 auto;padding:0 32px}
+  main{display:contents}
+  .pestanas{grid-area:nav;position:sticky;top:0;bottom:auto;display:flex;gap:4px;border-top:0;
+    border-bottom:1px solid var(--linea);padding:0;margin:0 -32px;padding:0 24px;height:52px;align-items:stretch}
+  .pestanas button{display:flex;align-items:center;gap:8px;padding:0 14px;font-size:.92rem}
+  .pestanas svg{width:18px;height:18px}
+  .pestanas button[aria-current="page"]::before{top:auto;bottom:-1px;left:10px;right:10px}
+  .pestanas button[data-vista="tablero"]{display:none}
+  .tira{grid-area:tira;max-width:none;padding:16px 0 0}
+  #vista-cargar{grid-area:carga;position:sticky;top:52px;max-height:calc(100dvh - 52px);overflow-y:auto;
+    padding:8px 0 28px;scrollbar-width:thin}
+  .barra-guardar{bottom:0}
+  #vista-tablero{grid-area:tab;padding:16px 0 40px;min-width:0}
+  #marco{width:100%;margin:0;border-radius:14px;min-height:calc(100dvh - 140px)}
+  #vista-ajustes{grid-column:1/-1;grid-row:2/-1;justify-self:center;width:100%;max-width:520px;padding:28px 0}
+  .aviso{left:auto;right:32px;top:64px;max-width:380px}
+}

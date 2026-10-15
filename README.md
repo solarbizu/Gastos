@@ -14,7 +14,7 @@ Formulario para cargar gastos e ingresos desde el celular y ver el tablero del m
 - La llave nunca sale del teléfono salvo hacia `api.github.com`. La política de seguridad de la página (CSP) impide conectarse a cualquier otro sitio y ejecutar código que no sea `app.js`.
 - Usá una llave de tipo *fine-grained*, con acceso a un único repositorio y solo el permiso **Contents: Read and write**.
 - La app se niega a conectarse a un repositorio público.
-- "Desconectar este teléfono", en Ajustes, borra la llave y todo lo guardado en el navegador.
+- "Desconectar este dispositivo", en Ajustes, borra la llave y todo lo guardado en el navegador.
 
 ## Archivos
 

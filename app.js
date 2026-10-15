@@ -8,7 +8,7 @@
  */
 'use strict';
 (() => {
-  const VERSION = '1.4.1';
+  const VERSION = '1.5.0';
   const API = 'https://api.github.com';
   const $ = (id) => document.getElementById(id);
   const nf0 = new Intl.NumberFormat('es-AR', { maximumFractionDigits: 0 });
@@ -645,16 +645,25 @@
     relojAviso = setTimeout(() => { el.className = 'aviso' + (mal ? ' mal' : ''); }, ms);
   }
 
+  // En la compu (pantalla ancha) Cargar y Tablero se ven juntos, uno al lado del otro.
+  const escritorio = window.matchMedia('(min-width: 1024px)');
+  let vistaActual = 'cargar';
   function irA(vista) {
-    ['cargar', 'tablero', 'ajustes'].forEach((v) => { $('vista-' + v).hidden = v !== vista; });
+    vistaActual = vista;
+    const juntas = escritorio.matches && vista !== 'ajustes';
+    const marcada = juntas ? 'cargar' : vista;
+    ['cargar', 'tablero', 'ajustes'].forEach((v) => {
+      $('vista-' + v).hidden = !(v === vista || (juntas && v !== 'ajustes'));
+    });
     document.querySelectorAll('#pestanas button').forEach((b) => {
-      if (b.dataset.vista === vista) b.setAttribute('aria-current', 'page');
+      if (b.dataset.vista === marcada) b.setAttribute('aria-current', 'page');
       else b.removeAttribute('aria-current');
     });
     mostrarTira();
-    if (vista === 'tablero') abrirTablero();
+    if (!$('vista-tablero').hidden) abrirTablero();
     window.scrollTo(0, 0);
   }
+  escritorio.addEventListener('change', () => { if (cfg) irA(vistaActual); });
 
   // ------------------------------------------------------------ sincronizar
   async function traerCatalogo(opciones = {}) {
@@ -794,7 +803,7 @@
   function desconectar() {
     const aviso = cola.length
       ? `Hay ${cola.length} carga(s) sin enviar que se van a perder. ¿Desconectar igual?`
-      : 'Se borra la llave de este teléfono. Tus datos en GitHub no se tocan. ¿Desconectar?';
+      : 'Se borra la llave de este dispositivo. Tus datos en GitHub no se tocan. ¿Desconectar?';
     if (!window.confirm(aviso)) return;
     guardado.borrarTodo();
     cfg = null; catalogo = null; estado = null; cola = []; historial = [];
